@@ -4,21 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Purpose
 
-This repository stores notes and configurations for learning and using Claude Code. The notes are based on the [Net Ninja Claude Code Course](https://www.youtube.com/playlist?list=PL4cUxeGkcC9g4YJeBqChhFJwKQ9TRiivY) and the [Claude Code Masterclass](https://netninja.dev/p/claude-code-masterclass).
+This repository covers the **camera selection, design, and documentation** for a
+custom **imaging payload for an underwater robot** — an Allied Vision camera on a
+MIPI/Jetson host, LED strobes, and the triggering electronics (capacitor
+carriers, sync circuitry) that fire the strobes while the shutter is open, for
+low-light photogrammetry stills at ~1 fps and 100–300 m depth.
+
+`CONTEXT.md` at the repo root is the source of truth for *what* the payload is
+and *why* — read it first for the system overview, operating envelope, and open
+trade studies.
+
+## Repository layout
+
+- `CONTEXT.md` — domain context: purpose, subsystems, constraints, open questions.
+- `requirements/` — payload requirements, interface specs, operating envelope.
+- `trade-studies/` — option comparisons and selection rationale.
+- `decisions/` — design-decision records (ADRs).
+- `vendors/` — third-party vendor documentation (datasheets, manuals), by vendor.
+- `tests/` — bench, pressure, sync-timing, and image-quality reports.
+
+The record is organized primarily by document *type*; the subsystem axis is
+carried by `area:` issue labels rather than directories, since the hardware
+decomposition is still fluid. Out of scope: the Jetson-side capture/control
+firmware and software (developed elsewhere).
 
 ## MCP Servers
 
 **context7** is configured as a project MCP server in `.mcp.json`. Use it to fetch up-to-date documentation when implementing features that involve libraries or frameworks. Always resolve the library ID first with `resolve-library-id`, then query with `query-docs`.
-
-## Key Claude Code Concepts Covered in Notes
-
-- **CLAUDE.md** (`02_claude.md`): project memory, local project memory, user memory, `/memory` command
-- **Context management** (`03_context.md`): `@file` references, `/clear`, `/compact`, `/resume`, context window (~200K tokens)
-- **Permissions** (`04_tools_and_permissions.md`): `.claude/settings.json` vs `.claude/settings.local.json`, deny/ask/allow tiers
-- **Planning & Thinking** (`05_planning_and_thinking.md`): `/plan` for multi-step work; `think`/`think harder`/`ultrathink` keywords for extended reasoning
-- **Custom slash commands** (`06_slash_commands.md`): defined in `.claude/commands/<name>.md`, support `$ARGUMENTS` via frontmatter
-- **MCP servers** (`07_mcp_servers.md`): `claude mcp add` syntax, context7 for library docs
-- **Spec-driven workflow** (`99_extras.md`): `/spec` → plan mode → implement with extended thinking + Opus
 
 ## Behavioral guidelines
 
@@ -99,12 +111,17 @@ Use `` ` `` (backtick) for inline code and code blocks in GitHub issues and pull
 
 ### Issue tracker
 
-Issues live in GitHub Issues for `markvilar/claude-code` (uses the `gh` CLI). See `docs/agents/issue-tracker.md`.
+Work is orchestrated via GitHub Projects and GitHub Issues on `markvilar/brov-av-imaging-payload` (uses the `gh` CLI). Issues hold the workflow and discussion; durable outcomes are distilled into the repo (`decisions/`, `trade-studies/`, `tests/`). Cross-link both ways: cite the issue number in the resulting artifact, and close the issue with a link to the committed artifact.
 
-### Triage labels
+### Issue labels
 
-Default label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+Label vocabulary (prefix-grouped):
+
+- `type:` — kind of work: `trade-study`, `decision`, `design`, `procurement`, `test`, `docs`, `question`.
+- `area:` — subsystem: `camera`, `lighting`, `electronics`, `mechanical`, `sync`, `power`. Preferred over directories for the subsystem axis, since the decomposition is still fluid.
+- `priority:` — `high`, `medium`, `low`.
+- Status flags: `blocked`, `needs-info`. Day-to-day status lives in the Project board columns; these labels flag states that matter outside that flow.
 
 ### Domain docs
 
-Single-context layout: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context layout: one `CONTEXT.md` at the repo root, with design-decision records (ADRs) under `decisions/`.
