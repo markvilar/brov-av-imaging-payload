@@ -21,10 +21,10 @@ copies auditable — an older revision is generally not retrievable from the sit
 
 | File | Document | Version | Downloaded |
 | --- | --- | --- | --- |
-| `Alvium-CSI-2-User-Guide.pdf` | Alvium CSI-2 Cameras User Guide | V4.2.0 (2026-Apr-23) | 2026-07-16 |
-| `Alvium-Features-Reference.pdf` | Alvium Features Reference | V3.6.0 (2026-May-20) | 2026-07-16 |
-| `Alvium_CSI-2-Register-Controls-Reference.pdf` | Alvium MIPI CSI-2 Cameras Direct Register Access Controls Reference | V2.6.0 (2026-Apr-23) | 2026-07-16 |
-| `Jetson-Nano-Xavier-NX-Dev-Kit_Adapter_User-Guide.pdf` | Adapter Board for NVIDIA Jetson Nano and Jetson Xavier NX Developer Kit User Guide (part 22558) | V1.1.4 (2025-Jul-11) | 2026-07-16 |
+| `alvium-csi2-user-guide.pdf` | Alvium CSI-2 Cameras User Guide | V4.2.0 (2026-Apr-23) | 2026-07-16 |
+| `alvium-csi2-register-controls-reference.pdf` | Alvium MIPI CSI-2 Cameras Direct Register Access Controls Reference | V2.6.0 (2026-Apr-23) | 2026-07-16 |
+| `alvium-features-reference.pdf` | Alvium Features Reference | V3.6.0 (2026-May-20) | 2026-07-16 |
+| `jetson-adapter-22558-user-guide.pdf` | Adapter Board for NVIDIA Jetson Nano and Jetson Xavier NX Developer Kit User Guide (part 22558) | V1.1.4 (2025-Jul-11) | 2026-07-16 |
 
 All four are generic to the Alvium family rather than tied to one part number.
 Camera-specific datasheets and STEP files get added once the sensor and mount
