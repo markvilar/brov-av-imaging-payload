@@ -41,6 +41,7 @@ camera.
 | Capture rate         | ~1 fps (low rate)                                            |
 | Lighting             | LED strobes, fired only during shutter-open                 |
 | Light conditions     | Low-light / dark underwater                                 |
+| Spectral window      | 380–700 nm (acrylic viewport → water absorption)            |
 | Camera vendor        | Allied Vision                                               |
 | Camera interface     | MIPI CSI-2                                                   |
 | Host carrier         | NVIDIA Jetson                                                |
@@ -48,6 +49,45 @@ camera.
 | Housing layout       | Separate camera and strobe housings                         |
 | Host vehicle         | Platform-agnostic (both tethered ROV and autonomous AUV)    |
 | Project stage        | Concept / camera selection                                  |
+
+### Spectral window
+
+Useful sensing is bounded at **380–700 nm**. The two bounds have different
+causes, and only one of them is physics.
+
+**Upper bound, ~700 nm — water absorption.** Water absorbs strongly in the red
+and near-infrared, and beyond ~700 nm no practical strobe energy recovers the
+loss.
+
+The relevant path length is **not the depth**. At 100–300 m there is no ambient
+light — which is why the payload carries strobes at all — so every photon
+reaching the sensor travels strobe → scene → sensor, a path of a few metres.
+Over a ~3 m round trip in reasonably clear water, 650 nm red is attenuated to
+roughly 10 %: lossy, but not extinguished. This is why strobe-lit colour imaging
+works at close range even where ambient red is long gone. "Water kills red" is
+true of ambient-lit scenes at depth, and only partly true of ours.
+
+**Lower bound, ~380 nm — the acrylic viewport.** Acrylic transmission falls off
+sharply below ~380 nm. This bound is a consequence of a *decision*
+(`decisions/0001-viewport-material.md`), not of the water: seawater transmits
+well into the UV. A borosilicate or sapphire port would move it.
+
+**Consequences for camera selection.** Sensitivity outside the window is
+unusable, so it excludes on principle rather than on preference:
+
+- **UV variants** — no light below ~380 nm reaches the sensor.
+- **SWIR / VSWIR variants** — water is effectively opaque at those wavelengths.
+- **NIR-enhanced variants** — their added response lies above the window, and
+  the deeper photodiodes that produce it tend to soften MTF through charge
+  diffusion. That trades sharpness, which photogrammetry depends on, for a band
+  the water removes.
+
+**The optimum within the window is water-type dependent.** Clear ocean water
+transmits best around 450–500 nm, while coastal and turbid water shifts the
+optimum toward roughly 520–570 nm as dissolved organics absorb blue (Jerlov
+water types). 380–700 nm is the hard bound; choosing a wavelength inside it is
+the strobe-spectrum trade study, and that study needs an operating water type as
+an input.
 
 ## Subsystem responsibilities
 
@@ -74,7 +114,13 @@ Each should graduate into an ADR in `decisions/` once decided.
 - **Camera model** — specific Allied Vision MIPI camera (sensor, resolution,
   shutter, sensitivity) not yet selected.
 - **Strobe spectrum** — white/broad-spectrum vs. a wavelength tuned for water
-  penetration or sensor sensitivity. To be resolved by trade study.
+  penetration or sensor sensitivity. Bounded to 380–700 nm (see Spectral
+  window); the optimum inside that window depends on water type, so this study
+  is blocked on the operating environment below. To be resolved by trade study.
+- **Operating water type** — clear ocean vs. coastal/turbid shifts the
+  transmission optimum by ~70 nm and changes the achievable working distance.
+  Currently unspecified, and an input to both the strobe-spectrum study and the
+  photon budget.
 - **Power architecture details** — capacitor bank sizing, recharge budget, and
   how the platform-agnostic power interface is defined for ROV vs. AUV hosts.
 
