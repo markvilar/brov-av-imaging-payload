@@ -127,6 +127,65 @@ class QuantumEfficiencyCurve:
 
 
 @dataclass(frozen=True)
+class EmvaMeasurements:
+    """The EMVA 1288 Release 3.1 block, as published in a model's datasheet.
+
+    Measurements, not specifications. Allied Vision state these are "typical
+    values for monochrome models measured without optical filter" — typical, not
+    guaranteed, and taken on a monochrome part. That caveat is why a colour
+    record cannot take them as published; see :meth:`SensorModel.as_color`.
+
+    EMVA 1288 is the European Machine Vision Association's standard for
+    characterising image sensors and cameras. It fixes *how* the measurement is
+    made, which is what makes figures comparable between vendors — and what makes
+    substituting a sensor manufacturer's own numbers a real cost rather than a
+    technicality.
+
+    Optional on a sensor because Allied Vision do not publish it for every model:
+    six of the 22 CSI-2 candidates ship datasheets with no Imaging performance
+    section at all. Those sensors are structurally complete and simply cannot be
+    ranked on the photon budget.
+    """
+
+    quantum_efficiency: tuple[QuantumEfficiencyPoint, ...]
+    temporal_dark_noise_e: float
+    saturation_capacity_e: float
+
+    # None for colour: both depend on QE, and Allied Vision publish neither per
+    # channel. Nothing in the ranking consumes them — they are kept because their
+    # redundancy against saturation capacity is the transcription check.
+    absolute_sensitivity_threshold_e: float | None
+    dynamic_range_db: float | None
+
+    def __post_init__(self) -> None:
+        """Dynamic range must follow from saturation capacity and threshold.
+
+        Skipped where either is absent, i.e. colour. This is the redundancy that
+        surfaced the C-040, whose datasheet states a saturation capacity 10x too
+        high.
+        """
+        if (
+            self.dynamic_range_db is None
+            or self.absolute_sensitivity_threshold_e is None
+        ):
+            return
+        derived = 20 * math.log10(
+            self.saturation_capacity_e / self.absolute_sensitivity_threshold_e
+        )
+        if abs(derived - self.dynamic_range_db) > DYNAMIC_RANGE_TOLERANCE_DB:
+            raise ValueError(
+                f"dynamic range derived from saturation capacity and threshold "
+                f"is {derived:.1f} dB, but {self.dynamic_range_db} dB is published"
+            )
+
+    def quantum_efficiency_for(self, channel: Channel) -> QuantumEfficiencyPoint:
+        for point in self.quantum_efficiency:
+            if point.channel is channel:
+                return point
+        raise KeyError(f"no {channel} measurement")
+
+
+@dataclass(frozen=True)
 class SensorModel:
     """Silicon-level facts, split from the camera so that features needing only
     sensor attributes need not carry a camera.
@@ -156,19 +215,11 @@ class SensorModel:
     sensor_height_mm: float
     sensor_diagonal_mm: float
 
-    # EMVA 1288 Release 3.1 block, from the datasheet. Published as "typical
-    # values for monochrome models measured without optical filter", so a
-    # colour record cannot take these as published — see `as_color`.
-    quantum_efficiency: tuple[QuantumEfficiencyPoint, ...]
-    temporal_dark_noise_e: float
-    saturation_capacity_e: float
-
-    # None for colour: both depend on QE, and Allied Vision publish neither per
-    # channel, in the datasheets or the user guide. Nothing in the ranking
-    # consumes them — they are stored because their redundancy against
-    # saturation capacity is the transcription check.
-    absolute_sensitivity_threshold_e: float | None
-    dynamic_range_db: float | None
+    # From the datasheet rather than the user guide, and absent for six of the
+    # 22 candidates — Allied Vision do not publish the block for every model.
+    # A sensor without it is structurally complete but cannot be ranked on the
+    # photon budget.
+    emva: EmvaMeasurements | None = None
 
     # One curve per channel. Populated only for shortlist finalists; digitising
     # every family is disproportionate. Needed to evaluate QE at a strobe
@@ -178,7 +229,6 @@ class SensorModel:
     def __post_init__(self) -> None:
         self._check_chroma_channels()
         self._check_sensor_geometry()
-        self._check_emva_redundancy()
 
     @property
     def pixel_area_um2(self) -> float:
@@ -186,10 +236,12 @@ class SensorModel:
         return self.pixel_size_um**2
 
     def quantum_efficiency_for(self, channel: Channel) -> QuantumEfficiencyPoint:
-        for point in self.quantum_efficiency:
-            if point.channel is channel:
-                return point
-        raise KeyError(f"{self.model_label} has no {channel} measurement")
+        if self.emva is None:
+            raise KeyError(f"{self.model_label} has no EMVA measurements")
+        try:
+            return self.emva.quantum_efficiency_for(channel)
+        except KeyError:
+            raise KeyError(f"{self.model_label} has no {channel} measurement") from None
 
     @classmethod
     def as_color(
@@ -205,7 +257,7 @@ class SensorModel:
         on a QE that is never published per channel.
 
         The three QE values are the only genuinely new numbers, read by eye off
-        the datasheet's QE chart at the same wavelength Allied Vision quote for
+        the datasheet's chart at the same wavelength Allied Vision quote for
         monochrome. They state the QE measurement uncertainty is +/-10%, and that
         colour curves are measured with an IR cut filter where the monochrome
         ones are not.
@@ -216,24 +268,40 @@ class SensorModel:
         """
         if mono.chroma is not Chroma.MONO:
             raise ValueError(f"{mono.model_label} is not a monochrome record")
+        if mono.emva is None:
+            raise ValueError(
+                f"{mono.model_label} has no EMVA measurements to inherit; "
+                f"Allied Vision publish no block for it"
+            )
         wavelength = mono.quantum_efficiency_for(Channel.MONO).wavelength_nm
         return replace(
             mono,
             chroma=Chroma.COLOR,
-            quantum_efficiency=(
-                QuantumEfficiencyPoint(Channel.RED, wavelength, red),
-                QuantumEfficiencyPoint(Channel.GREEN, wavelength, green),
-                QuantumEfficiencyPoint(Channel.BLUE, wavelength, blue),
+            emva=EmvaMeasurements(
+                quantum_efficiency=(
+                    QuantumEfficiencyPoint(Channel.RED, wavelength, red),
+                    QuantumEfficiencyPoint(Channel.GREEN, wavelength, green),
+                    QuantumEfficiencyPoint(Channel.BLUE, wavelength, blue),
+                ),
+                temporal_dark_noise_e=mono.emva.temporal_dark_noise_e,
+                saturation_capacity_e=mono.emva.saturation_capacity_e,
+                absolute_sensitivity_threshold_e=None,
+                dynamic_range_db=None,
             ),
-            absolute_sensitivity_threshold_e=None,
-            dynamic_range_db=None,
             quantum_efficiency_curves=(),
         )
 
     def _check_chroma_channels(self) -> None:
-        """Chroma and channel must agree."""
-        channels = {p.channel for p in self.quantum_efficiency}
-        if len(channels) != len(self.quantum_efficiency):
+        """Chroma and channel must agree.
+
+        Vacuous where no EMVA block is published: there are no measurements to
+        disagree with the chroma.
+        """
+        if self.emva is None:
+            return
+        points = self.emva.quantum_efficiency
+        channels = {p.channel for p in points}
+        if len(channels) != len(points):
             raise ValueError(f"{self.model_label} repeats a QE channel")
         if self.chroma is Chroma.MONO:
             if channels != {Channel.MONO}:
@@ -266,28 +334,6 @@ class SensorModel:
                     f"{self.model_label}: derived {name} {derived:.2f} mm "
                     f"disagrees with published {published} mm"
                 )
-
-    def _check_emva_redundancy(self) -> None:
-        """Dynamic range must follow from saturation capacity and threshold.
-
-        Skipped for colour records, which have neither. This is the redundancy
-        that surfaced the C-040, whose datasheet states a saturation capacity
-        10x too high.
-        """
-        if (
-            self.dynamic_range_db is None
-            or self.absolute_sensitivity_threshold_e is None
-        ):
-            return
-        derived = 20 * math.log10(
-            self.saturation_capacity_e / self.absolute_sensitivity_threshold_e
-        )
-        if abs(derived - self.dynamic_range_db) > DYNAMIC_RANGE_TOLERANCE_DB:
-            raise ValueError(
-                f"{self.model_label}: dynamic range derived from saturation "
-                f"capacity and threshold is {derived:.1f} dB, but "
-                f"{self.dynamic_range_db} dB is published"
-            )
 
 
 @dataclass(frozen=True)
