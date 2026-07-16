@@ -52,19 +52,22 @@ same flash.
 
 **Consequences for selection.**
 
-- Plain-RS models are excluded. In the current CSI-2 line that is the
-  **1800 C-500** (ON Semi AR0521SR), the only RS-without-GRS candidate.
-- GRS models — **1800 C-1240** (IMX226) and **1800 C-2050** (IMX183) — remain
-  candidates *conditionally*. Condition (c) is an external dependency on the
+- Plain-RS models are excluded outright. In the current CSI-2 line that is the
+  **1800 C-500** (ON Semi AR0521SR).
+- GRS models — **1800 C-1240** (IMX226) and **1800 C-2050** (IMX183) — satisfy
+  CAM-1 in principle, since the payload's scene is dark. They are nonetheless
+  **excluded by decision**: condition (c) is an external dependency on the
   Jetson-side capture stack, which this repository does not develop (see
-  `CONTEXT.md`, Repository scope). It is tracked as an open question there.
-- The remaining 23 candidates are global shutter and satisfy CAM-1 outright.
+  `CONTEXT.md`, Repository scope), and which may not use GenICam for CSI-2
+  Access. Rather than carry a candidate whose viability rests on a choice made
+  elsewhere, camera selection is restricted to global shutter.
+- That leaves the **23 global-shutter models**, which satisfy CAM-1 outright.
 
-Whether to accept the GenICam dependency in exchange for the GRS models is not
-decided here. It is an input to the camera-model trade study, where it presents
-as a resolution-versus-sensitivity trade: the C-2050 is the only 20 MP candidate
-and has the highest quantum efficiency in the set, but its 2.4 µm pixels collect
-less light per pixel than the 3.45 µm alternatives.
+The cost is recorded rather than glossed: the C-2050 is the only 20 MP candidate
+and has the highest quantum efficiency in the set (80% at 529 nm). Selection
+gives that up in exchange for not depending on an external software decision. If
+the capture stack later commits to GenICam for CSI-2 Access, this is worth
+revisiting — the physics never ruled those two out.
 
 **Verification.** Bench test: strobe-lit flat field at the operating exposure,
 checked for row-wise uniformity across the frame. Reported in `tests/`.
