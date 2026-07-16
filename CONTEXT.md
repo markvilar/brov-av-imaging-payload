@@ -121,6 +121,13 @@ Each should graduate into an ADR in `decisions/` once decided.
   transmission optimum by ~70 nm and changes the achievable working distance.
   Currently unspecified, and an input to both the strobe-spectrum study and the
   photon budget.
+- **GenICam for CSI-2 Access availability** — global reset shutter (GRS) is the
+  only way a rolling-shutter sensor can satisfy `CAM-1` (see
+  `requirements/camera-requirements.md`), and Allied Vision exposes GRS solely
+  through their GenICam for CSI-2 access mode, not plain V4L2. The Jetson-side
+  capture stack is developed elsewhere (see Repository scope), so this is an
+  external dependency that decides whether the two GRS models (1800 C-1240,
+  C-2050) are candidates at all — including the only 20 MP option.
 - **Power architecture details** — capacitor bank sizing, recharge budget, and
   how the platform-agnostic power interface is defined for ROV vs. AUV hosts.
 
