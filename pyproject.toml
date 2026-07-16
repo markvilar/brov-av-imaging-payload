@@ -1,0 +1,25 @@
+[project]
+name = "brov-av-imaging-payload"
+version = "0.1.0"
+description = "Design-time camera selection tooling for an underwater imaging payload"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "loguru>=0.7.3",
+    "pandas>=3.0.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Distribution is named for the repo, the package is `camsel`, so hatchling
+# cannot infer the location.
+packages = ["src/camsel"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.15.21",
+]
