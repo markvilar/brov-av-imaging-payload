@@ -347,7 +347,14 @@ class CameraModel:
     sensor: SensorModel
 
     interface: Interface
-    adc_bits: int
+
+    # None where Allied Vision do not publish the converter depth. The user
+    # guide labels two different facts identically — some models show
+    # `ADC bit depth: 12-bit` (the converter), others only
+    # `Sensor bit depth (ADC): 8-bit, 10-bit, 12-bit; Adaptive` (the selectable
+    # output format) — and the datasheet disambiguates. A model with no
+    # datasheet therefore has no published converter depth.
+    adc_bits: int | None
 
     # Kept for its timing role, not its frame rate: readout time ~ 1 / max_fps
     # is the only published handle on how long a frame takes to scan out, and
@@ -361,8 +368,10 @@ class CameraModel:
     exposure_min_ns: int
     exposure_max_ns: int
 
-    # Availability set, not a value. Empty for bare-board variants.
-    lens_mounts: frozenset[LensMount]
+    # Availability set, not a value. Empty means a bare-board variant, which
+    # carries no mount; None means Allied Vision do not publish it — mounts
+    # appear only in the datasheets, never in the user guide's per-model table.
+    lens_mounts: frozenset[LensMount] | None
 
     power_consumption_w: float
     mass_g: float

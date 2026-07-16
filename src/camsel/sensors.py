@@ -46,6 +46,15 @@ C_291_DIAGONAL_DISCREPANCY = (
     "arbitrate — the figure simply contradicts its own row."
 )
 
+C_321_NO_DATASHEET = (
+    "Allied Vision publish no datasheet for the C-321: "
+    "Alvium_1800_C-321_DataSheet_en.pdf returns 404, as do the naming variants "
+    "tried. The user guide carries its structural fields, but the EMVA block, "
+    "the converter bit depth and the lens mounts appear only in datasheets, so "
+    "all three are unpublished for this model. Mass is taken from the user "
+    "guide's Table 100, which gives 40 g for every open-housing standard Alvium."
+)
+
 C_040_SATURATION_DISCREPANCY = (
     "Datasheet V1.3.0 states saturation capacity 208000 e-, which fails the "
     "dynamic-range check by 20 dB: 20*log10(208000/4.0) = 94.3 dB against a "
@@ -232,6 +241,23 @@ IMX265 = SensorModel(
         absolute_sensitivity_threshold_e=2.7,
         dynamic_range_db=72,
     ),
+)
+
+# Allied Vision publish no datasheet for the C-321 at all, so its EMVA block,
+# converter depth and lens mounts are all unpublished. Everything the user guide
+# does carry is recorded; the record is honest about the rest.
+IMX900 = SensorModel(
+    model_label="Sony IMX900",
+    chroma=Chroma.MONO,
+    shutter_modes=frozenset({ShutterType.GLOBAL}),
+    resolution_h=2064,
+    resolution_v=1552,
+    pixel_size_um=2.25,
+    sensor_format="Type 1/3.1",
+    sensor_width_mm=4.6,
+    sensor_height_mm=3.5,
+    sensor_diagonal_mm=5.8,
+    emva=None,
 )
 
 IMX264 = SensorModel(
@@ -631,6 +657,30 @@ ALVIUM_1800_C_319M = CameraModel(
     operating_temp_max_c=65,
 )
 
+ALVIUM_1800_C_321M = CameraModel(
+    model_label="1800 C-321m",
+    series="Alvium 1800 C",
+    sensor=IMX900,
+    interface=Interface.CSI2,
+    # The user guide publishes only the selectable output depth for this model
+    # ("8-bit, 10-bit, 12-bit; Adaptive"), not the converter depth, and there is
+    # no datasheet to disambiguate.
+    adc_bits=None,
+    max_frame_rate_fps=111,
+    exposure_min_ns=7_000,
+    exposure_max_ns=10_000_000_000,
+    # Mounts appear only in the datasheets. This model has none published.
+    lens_mounts=None,
+    power_consumption_w=1.9,
+    # Not published for this model. Table 100 of the user guide gives 40 g for
+    # every open-housing standard Alvium regardless of mount, which is where the
+    # other records' figure comes from.
+    mass_g=40,
+    operating_temp_min_c=-20,
+    operating_temp_max_c=65,
+    vendor_discrepancies=(C_321_NO_DATASHEET,),
+)
+
 ALVIUM_1800_C_507M = CameraModel(
     model_label="1800 C-507m",
     series="Alvium 1800 C",
@@ -869,6 +919,7 @@ CSI2_CAMERAS: tuple[CameraModel, ...] = (
     ALVIUM_1800_C_240M,
     ALVIUM_1800_C_291M,
     ALVIUM_1800_C_319M,
+    ALVIUM_1800_C_321M,
     ALVIUM_1800_C_507M,
     ALVIUM_1800_C_507C,
     ALVIUM_1800_C_508M,

@@ -34,14 +34,14 @@ def test_every_record_constructs() -> None:
     Constructing at import means every record has already passed the geometry,
     chroma and (where published) EMVA checks.
     """
-    assert len(CSI2_CAMERAS) == 24
+    assert len(CSI2_CAMERAS) == 25
     mono = [c for c in CSI2_CAMERAS if c.sensor.chroma is Chroma.MONO]
     colour = [c for c in CSI2_CAMERAS if c.sensor.chroma is Chroma.COLOR]
-    assert len(mono) == 22
+    assert len(mono) == 23
     assert len(colour) == 2  # the rest are deferred to #13
 
 
-def test_six_models_have_no_published_emva() -> None:
+def test_models_without_a_published_emva_block() -> None:
     """Allied Vision do not publish the block for every model.
 
     These are structurally complete but cannot be ranked on the photon budget.
@@ -53,10 +53,29 @@ def test_six_models_have_no_published_emva() -> None:
         "1800 C-203m",
         "1800 C-234m",
         "1800 C-235m",
+        "1800 C-321m",
         "1800 C-895m",
         "1800 C-507 Polm",
         "1800 C-508 Polm",
     }
+
+
+def test_the_c321_is_partial_but_present() -> None:
+    """No datasheet exists for it, so three fields are unpublished.
+
+    A missing document is not a reason to drop a candidate: everything the user
+    guide carries is recorded, and the gaps are visible rather than implied by
+    the row's absence.
+    """
+    c321 = next(c for c in CSI2_CAMERAS if c.model_label == "1800 C-321m")
+    assert c321.sensor.emva is None
+    assert c321.adc_bits is None
+    assert c321.lens_mounts is None
+    # Everything the user guide does publish is there.
+    assert c321.sensor.pixel_size_um == 2.25
+    assert c321.max_frame_rate_fps == 111
+    assert c321.power_consumption_w == 1.9
+    assert c321.vendor_discrepancies
 
 
 def test_rankable_records_have_the_budget_inputs() -> None:
@@ -296,13 +315,21 @@ class TestCameraModel:
     def test_discrepancies_are_enumerable(self) -> None:
         """#11 needs the vendor-error set to report to Allied Vision."""
         flagged = {c.model_label for c in CSI2_CAMERAS if c.vendor_discrepancies}
-        assert flagged == {"1800 C-040m", "1800 C-040c", "1800 C-291m"}
+        assert flagged == {
+            "1800 C-040m",
+            "1800 C-040c",
+            "1800 C-291m",
+            "1800 C-321m",
+        }
 
     def test_clean_records_carry_no_discrepancies(self) -> None:
         assert ALVIUM_1800_C_507M.vendor_discrepancies == ()
 
     def test_lens_mounts_are_an_availability_set(self) -> None:
         assert ALVIUM_1800_C_507M.lens_mounts == frozenset({LensMount.C, LensMount.CS})
+        # None is distinct from empty: unpublished, not "bare board".
+        c321 = next(c for c in CSI2_CAMERAS if c.model_label == "1800 C-321m")
+        assert c321.lens_mounts is None
         assert LensMount.S in ALVIUM_1800_C_040M.lens_mounts
 
     def test_records_are_frozen(self) -> None:
