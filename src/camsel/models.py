@@ -407,6 +407,90 @@ class SensorModel:
 
 
 @dataclass(frozen=True)
+class LensModel:
+    """A fixed focal length lens, from a vendor's approved-lens datasheet.
+
+    Stores only the two intrinsic optical facts the imaging geometry needs —
+    focal length and image circle — plus the aperture and catalogue metadata.
+    Field of view is deliberately *not* stored: it is a property of the
+    lens+sensor pair, not the lens, so it is derived against a
+    :class:`SensorModel` via :meth:`angular_field_of_view`. This mirrors
+    :class:`SensorModel`, which stores raw facts and derives ``readout_time``.
+
+    See issue #15.
+
+    Attributes:
+        model_label: Vendor model designation, e.g. "C-8-F2.4-10MP-T2-3".
+        vendor: Manufacturer, e.g. "Allied Vision".
+        product_code: Vendor order code, e.g. "17870".
+        mount: Lens mount.
+        focal_length: Focal length, in millimetres (mm).
+        image_circle: Maximum image circle the lens covers, in millimetres (mm).
+            The coverage handle: a lens images a sensor cleanly only where this
+            reaches the sensor diagonal — see :meth:`covers`.
+        fstop: Widest aperture (lowest f-number). The AV lenses have an
+            adjustable aperture published as a range (e.g. F2.4–F16); this stores
+            the wide-open end, the low-light-relevant one. See issue #15.
+        max_format: Largest sensor format the lens is rated for, e.g. "Type 2/3".
+        min_focus_distance: Closest focus, object to front element, in metres (m).
+        mass: Mass, in grams (g).
+    """
+
+    model_label: str
+    vendor: str
+    product_code: str
+    mount: LensMount
+    focal_length: float
+    image_circle: float
+    fstop: float
+    max_format: str
+    min_focus_distance: float
+    mass: float
+
+    def __post_init__(self) -> None:
+        if self.fstop <= 0:
+            raise ValueError(f"{self.model_label}: f-stop must be positive")
+        if self.focal_length <= 0:
+            raise ValueError(f"{self.model_label}: focal length must be positive")
+        if self.image_circle <= 0:
+            raise ValueError(f"{self.model_label}: image circle must be positive")
+        if self.min_focus_distance <= 0:
+            raise ValueError(f"{self.model_label}: min focus distance must be positive")
+        if self.mass <= 0:
+            raise ValueError(f"{self.model_label}: mass must be positive")
+
+    @property
+    def relative_illumination(self) -> float:
+        """Relative light-gathering, ``1 / fstop**2``.
+
+        Derived from the aperture, so nothing is transcribed. This is a
+        relative-aperture figure and is *not* the datasheet's like-named
+        "Relative illumination" row, which is a measured corner-vs-centre falloff
+        and is not stored. See issue #15.
+        """
+        return 1.0 / self.fstop**2
+
+    def angular_field_of_view(self, dimension: float) -> float:
+        """Angular field of view, in degrees, subtended by a sensor dimension.
+
+        ``dimension`` is a sensor extent in millimetres — pass the active width,
+        height, or diagonal to get the corresponding FOV. Rectilinear lens
+        focused at infinity: ``2 * atan(dimension / (2 * focal_length))``. Valid
+        only where the lens :meth:`covers` the sensor; beyond the image circle the
+        true FOV is clipped by the optics, not the sensor.
+        """
+        return math.degrees(2 * math.atan(dimension / (2 * self.focal_length)))
+
+    def covers(self, sensor: SensorModel) -> bool:
+        """Whether the image circle reaches the sensor's diagonal.
+
+        False means the sensor corners fall outside the projected image and
+        vignette — the case the C-6 hits on a full Type 2/3 sensor.
+        """
+        return self.image_circle >= sensor.diagonal
+
+
+@dataclass(frozen=True)
 class CameraModel:
     """An orderable Alvium model. This is what an ADR and a purchase order name.
 
