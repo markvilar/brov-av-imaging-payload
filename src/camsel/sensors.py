@@ -18,12 +18,13 @@ from camsel.models import (
     CameraModel,
     Channel,
     Chroma,
-    EmvaMeasurements,
     Interface,
     LensMount,
     QuantumEfficiencyPoint,
+    QuantumEfficiencyPoints,
     SensorModel,
     ShutterType,
+    SignalMetrics,
 )
 
 #: Source of every structural field. Constant across all records, so it is not
@@ -64,8 +65,10 @@ C_040_SATURATION_DISCREPANCY = (
 )
 
 
-def _mono(value: float) -> tuple[QuantumEfficiencyPoint, ...]:
-    return (QuantumEfficiencyPoint(Channel.MONO, QE_WAVELENGTH_NM, value),)
+def _mono(value: float) -> QuantumEfficiencyPoints:
+    return QuantumEfficiencyPoints(
+        (QuantumEfficiencyPoint(Channel.MONO, QE_WAVELENGTH_NM, value),)
+    )
 
 
 IMX287 = SensorModel(
@@ -74,19 +77,19 @@ IMX287 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=728,
     resolution_v=544,
-    pixel_size_um=6.9,
-    sensor_format="Type 1/2.9",
-    sensor_width_mm=5.0,
-    sensor_height_mm=3.8,
-    sensor_diagonal_mm=6.3,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.64),
-        temporal_dark_noise_e=3.2,
+    pixel_size=6.9,
+    size_format="Type 1/2.9",
+    width=5.0,
+    height=3.8,
+    diagonal=6.3,
+    quantum_efficiency_points=_mono(0.64),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=3.2,
         # Datasheet V1.3.0 states 208000 e-, 10x too high. See the discrepancy
         # recorded on ALVIUM_1800_C_040M.
-        saturation_capacity_e=20800,
-        absolute_sensitivity_threshold_e=4.0,
-        dynamic_range_db=74,
+        saturation_capacity=20800,
+        absolute_sensitivity_threshold=4.0,
+        dynamic_range=74,
     ),
 )
 
@@ -96,17 +99,17 @@ IMX426 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=816,
     resolution_v=624,
-    pixel_size_um=9.0,
-    sensor_format="Type 1/1.7",
-    sensor_width_mm=7.3,
-    sensor_height_mm=5.6,
-    sensor_diagonal_mm=9.2,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.73),
-        temporal_dark_noise_e=21.8,
-        saturation_capacity_e=100000,
-        absolute_sensitivity_threshold_e=23.7,
-        dynamic_range_db=73,
+    pixel_size=9.0,
+    size_format="Type 1/1.7",
+    width=7.3,
+    height=5.6,
+    diagonal=9.2,
+    quantum_efficiency_points=_mono(0.73),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=21.8,
+        saturation_capacity=100000,
+        absolute_sensitivity_threshold=23.7,
+        dynamic_range=73,
     ),
 )
 
@@ -116,17 +119,17 @@ IMX273 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=1456,
     resolution_v=1088,
-    pixel_size_um=3.45,
-    sensor_format="Type 1/2.9",
-    sensor_width_mm=5.0,
-    sensor_height_mm=3.8,
-    sensor_diagonal_mm=6.3,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.64),
-        temporal_dark_noise_e=2.1,
-        saturation_capacity_e=10400,
-        absolute_sensitivity_threshold_e=2.7,
-        dynamic_range_db=72,
+    pixel_size=3.45,
+    size_format="Type 1/2.9",
+    width=5.0,
+    height=3.8,
+    diagonal=6.3,
+    quantum_efficiency_points=_mono(0.64),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.1,
+        saturation_capacity=10400,
+        absolute_sensitivity_threshold=2.7,
+        dynamic_range=72,
     ),
 )
 
@@ -139,12 +142,11 @@ IMX422 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=1632,
     resolution_v=1248,
-    pixel_size_um=4.5,
-    sensor_format="Type 1/1.7",
-    sensor_width_mm=7.3,
-    sensor_height_mm=5.6,
-    sensor_diagonal_mm=9.2,
-    emva=None,
+    pixel_size=4.5,
+    size_format="Type 1/1.7",
+    width=7.3,
+    height=5.6,
+    diagonal=9.2,
 )
 
 # Allied Vision publish no EMVA block for the C-234: its datasheet
@@ -156,12 +158,11 @@ IMX249 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=1936,
     resolution_v=1216,
-    pixel_size_um=5.86,
-    sensor_format="Type 1/1.2",
-    sensor_width_mm=11.3,
-    sensor_height_mm=7.1,
-    sensor_diagonal_mm=13.4,
-    emva=None,
+    pixel_size=5.86,
+    size_format="Type 1/1.2",
+    width=11.3,
+    height=7.1,
+    diagonal=13.4,
 )
 
 # Allied Vision publish no EMVA block for the C-235: its datasheet
@@ -173,12 +174,11 @@ IMX174 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=1936,
     resolution_v=1216,
-    pixel_size_um=5.86,
-    sensor_format="Type 1/1.2",
-    sensor_width_mm=11.3,
-    sensor_height_mm=7.1,
-    sensor_diagonal_mm=13.4,
-    emva=None,
+    pixel_size=5.86,
+    size_format="Type 1/1.2",
+    width=11.3,
+    height=7.1,
+    diagonal=13.4,
 )
 
 IMX392 = SensorModel(
@@ -187,17 +187,17 @@ IMX392 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=1936,
     resolution_v=1216,
-    pixel_size_um=3.45,
-    sensor_format="Type 1/2.3",
-    sensor_width_mm=6.7,
-    sensor_height_mm=4.2,
-    sensor_diagonal_mm=7.9,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.64),
-        temporal_dark_noise_e=2.1,
-        saturation_capacity_e=10400,
-        absolute_sensitivity_threshold_e=2.7,
-        dynamic_range_db=72,
+    pixel_size=3.45,
+    size_format="Type 1/2.3",
+    width=6.7,
+    height=4.2,
+    diagonal=7.9,
+    quantum_efficiency_points=_mono(0.64),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.1,
+        saturation_capacity=10400,
+        absolute_sensitivity_threshold=2.7,
+        dynamic_range=72,
     ),
 )
 
@@ -207,19 +207,19 @@ IMX421 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=1944,
     resolution_v=1472,
-    pixel_size_um=4.5,
-    sensor_format="Type 2/3",
-    sensor_width_mm=8.8,
-    sensor_height_mm=6.6,
+    pixel_size=4.5,
+    size_format="Type 2/3",
+    width=8.8,
+    height=6.6,
     # Published as 10.8 mm, which contradicts the published width and height.
     # See the discrepancy recorded on ALVIUM_1800_C_291M.
-    sensor_diagonal_mm=10.97,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.73),
-        temporal_dark_noise_e=5.4,
-        saturation_capacity_e=25000,
-        absolute_sensitivity_threshold_e=6.2,
-        dynamic_range_db=72,
+    diagonal=10.97,
+    quantum_efficiency_points=_mono(0.73),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=5.4,
+        saturation_capacity=25000,
+        absolute_sensitivity_threshold=6.2,
+        dynamic_range=72,
     ),
 )
 
@@ -229,17 +229,17 @@ IMX265 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=2064,
     resolution_v=1544,
-    pixel_size_um=3.45,
-    sensor_format="Type 1/1.8",
-    sensor_width_mm=7.1,
-    sensor_height_mm=5.3,
-    sensor_diagonal_mm=8.9,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.64),
-        temporal_dark_noise_e=2.1,
-        saturation_capacity_e=10400,
-        absolute_sensitivity_threshold_e=2.7,
-        dynamic_range_db=72,
+    pixel_size=3.45,
+    size_format="Type 1/1.8",
+    width=7.1,
+    height=5.3,
+    diagonal=8.9,
+    quantum_efficiency_points=_mono(0.64),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.1,
+        saturation_capacity=10400,
+        absolute_sensitivity_threshold=2.7,
+        dynamic_range=72,
     ),
 )
 
@@ -252,12 +252,11 @@ IMX900 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=2064,
     resolution_v=1552,
-    pixel_size_um=2.25,
-    sensor_format="Type 1/3.1",
-    sensor_width_mm=4.6,
-    sensor_height_mm=3.5,
-    sensor_diagonal_mm=5.8,
-    emva=None,
+    pixel_size=2.25,
+    size_format="Type 1/3.1",
+    width=4.6,
+    height=3.5,
+    diagonal=5.8,
 )
 
 IMX264 = SensorModel(
@@ -266,17 +265,17 @@ IMX264 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=2464,
     resolution_v=2056,
-    pixel_size_um=3.45,
-    sensor_format="Type 2/3",
-    sensor_width_mm=8.5,
-    sensor_height_mm=7.1,
-    sensor_diagonal_mm=11.1,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.64),
-        temporal_dark_noise_e=2.1,
-        saturation_capacity_e=10400,
-        absolute_sensitivity_threshold_e=2.7,
-        dynamic_range_db=72,
+    pixel_size=3.45,
+    size_format="Type 2/3",
+    width=8.5,
+    height=7.1,
+    diagonal=11.1,
+    quantum_efficiency_points=_mono(0.64),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.1,
+        saturation_capacity=10400,
+        absolute_sensitivity_threshold=2.7,
+        dynamic_range=72,
     ),
 )
 
@@ -286,17 +285,17 @@ IMX250 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=2464,
     resolution_v=2056,
-    pixel_size_um=3.45,
-    sensor_format="Type 2/3",
-    sensor_width_mm=8.5,
-    sensor_height_mm=7.1,
-    sensor_diagonal_mm=11.1,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.64),
-        temporal_dark_noise_e=2.1,
-        saturation_capacity_e=10400,
-        absolute_sensitivity_threshold_e=2.7,
-        dynamic_range_db=72,
+    pixel_size=3.45,
+    size_format="Type 2/3",
+    width=8.5,
+    height=7.1,
+    diagonal=11.1,
+    quantum_efficiency_points=_mono(0.64),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.1,
+        saturation_capacity=10400,
+        absolute_sensitivity_threshold=2.7,
+        dynamic_range=72,
     ),
 )
 
@@ -306,17 +305,17 @@ IMX548 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=2464,
     resolution_v=2064,
-    pixel_size_um=2.74,
-    sensor_format="Type 1/1.8",
-    sensor_width_mm=6.8,
-    sensor_height_mm=5.7,
-    sensor_diagonal_mm=8.8,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.68),
-        temporal_dark_noise_e=2.3,
-        saturation_capacity_e=9400,
-        absolute_sensitivity_threshold_e=2.9,
-        dynamic_range_db=70,
+    pixel_size=2.74,
+    size_format="Type 1/1.8",
+    width=6.8,
+    height=5.7,
+    diagonal=8.8,
+    quantum_efficiency_points=_mono(0.68),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.3,
+        saturation_capacity=9400,
+        absolute_sensitivity_threshold=2.9,
+        dynamic_range=70,
     ),
 )
 
@@ -326,17 +325,17 @@ IMX547 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=2464,
     resolution_v=2064,
-    pixel_size_um=2.74,
-    sensor_format="Type 1/1.8",
-    sensor_width_mm=6.8,
-    sensor_height_mm=5.7,
-    sensor_diagonal_mm=8.8,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.68),
-        temporal_dark_noise_e=2.3,
-        saturation_capacity_e=9400,
-        absolute_sensitivity_threshold_e=2.9,
-        dynamic_range_db=70,
+    pixel_size=2.74,
+    size_format="Type 1/1.8",
+    width=6.8,
+    height=5.7,
+    diagonal=8.8,
+    quantum_efficiency_points=_mono(0.68),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.3,
+        saturation_capacity=9400,
+        absolute_sensitivity_threshold=2.9,
+        dynamic_range=70,
     ),
 )
 
@@ -346,17 +345,17 @@ IMX546 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=2848,
     resolution_v=2848,
-    pixel_size_um=2.74,
-    sensor_format="Type 2/3",
-    sensor_width_mm=7.8,
-    sensor_height_mm=7.8,
-    sensor_diagonal_mm=11.0,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.68),
-        temporal_dark_noise_e=2.3,
-        saturation_capacity_e=9400,
-        absolute_sensitivity_threshold_e=2.9,
-        dynamic_range_db=70,
+    pixel_size=2.74,
+    size_format="Type 2/3",
+    width=7.8,
+    height=7.8,
+    diagonal=11.0,
+    quantum_efficiency_points=_mono(0.68),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.3,
+        saturation_capacity=9400,
+        absolute_sensitivity_threshold=2.9,
+        dynamic_range=70,
     ),
 )
 
@@ -369,12 +368,11 @@ IMX267 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=4112,
     resolution_v=2176,
-    pixel_size_um=3.45,
-    sensor_format="Type 1",
-    sensor_width_mm=14.2,
-    sensor_height_mm=7.5,
-    sensor_diagonal_mm=16.0,
-    emva=None,
+    pixel_size=3.45,
+    size_format="Type 1",
+    width=14.2,
+    height=7.5,
+    diagonal=16.0,
 )
 
 IMX304 = SensorModel(
@@ -383,17 +381,17 @@ IMX304 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=4112,
     resolution_v=3008,
-    pixel_size_um=3.45,
-    sensor_format="Type 1.1",
-    sensor_width_mm=14.2,
-    sensor_height_mm=10.4,
-    sensor_diagonal_mm=17.6,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.64),
-        temporal_dark_noise_e=2.1,
-        saturation_capacity_e=10400,
-        absolute_sensitivity_threshold_e=2.7,
-        dynamic_range_db=72,
+    pixel_size=3.45,
+    size_format="Type 1.1",
+    width=14.2,
+    height=10.4,
+    diagonal=17.6,
+    quantum_efficiency_points=_mono(0.64),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.1,
+        saturation_capacity=10400,
+        absolute_sensitivity_threshold=2.7,
+        dynamic_range=72,
     ),
 )
 
@@ -403,17 +401,17 @@ IMX545 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=4128,
     resolution_v=3008,
-    pixel_size_um=2.74,
-    sensor_format="Type 1/1.1",
-    sensor_width_mm=11.3,
-    sensor_height_mm=8.2,
-    sensor_diagonal_mm=14.0,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.68),
-        temporal_dark_noise_e=2.3,
-        saturation_capacity_e=9400,
-        absolute_sensitivity_threshold_e=2.9,
-        dynamic_range_db=70,
+    pixel_size=2.74,
+    size_format="Type 1/1.1",
+    width=11.3,
+    height=8.2,
+    diagonal=14.0,
+    quantum_efficiency_points=_mono(0.68),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.3,
+        saturation_capacity=9400,
+        absolute_sensitivity_threshold=2.9,
+        dynamic_range=70,
     ),
 )
 
@@ -423,17 +421,17 @@ IMX542 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=5328,
     resolution_v=3040,
-    pixel_size_um=2.74,
-    sensor_format="Type 1.1",
-    sensor_width_mm=14.6,
-    sensor_height_mm=8.3,
-    sensor_diagonal_mm=16.8,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.68),
-        temporal_dark_noise_e=2.3,
-        saturation_capacity_e=9400,
-        absolute_sensitivity_threshold_e=2.9,
-        dynamic_range_db=70,
+    pixel_size=2.74,
+    size_format="Type 1.1",
+    width=14.6,
+    height=8.3,
+    diagonal=16.8,
+    quantum_efficiency_points=_mono(0.68),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.3,
+        saturation_capacity=9400,
+        absolute_sensitivity_threshold=2.9,
+        dynamic_range=70,
     ),
 )
 
@@ -443,17 +441,17 @@ IMX541 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=4512,
     resolution_v=4512,
-    pixel_size_um=2.74,
-    sensor_format="Type 1.1",
-    sensor_width_mm=12.4,
-    sensor_height_mm=12.4,
-    sensor_diagonal_mm=17.5,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.68),
-        temporal_dark_noise_e=2.3,
-        saturation_capacity_e=9400,
-        absolute_sensitivity_threshold_e=2.9,
-        dynamic_range_db=70,
+    pixel_size=2.74,
+    size_format="Type 1.1",
+    width=12.4,
+    height=12.4,
+    diagonal=17.5,
+    quantum_efficiency_points=_mono(0.68),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.3,
+        saturation_capacity=9400,
+        absolute_sensitivity_threshold=2.9,
+        dynamic_range=70,
     ),
 )
 
@@ -463,17 +461,17 @@ IMX540 = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=5328,
     resolution_v=4608,
-    pixel_size_um=2.74,
-    sensor_format="Type 1.2",
-    sensor_width_mm=14.6,
-    sensor_height_mm=12.6,
-    sensor_diagonal_mm=19.3,
-    emva=EmvaMeasurements(
-        quantum_efficiency=_mono(0.68),
-        temporal_dark_noise_e=2.3,
-        saturation_capacity_e=9400,
-        absolute_sensitivity_threshold_e=2.9,
-        dynamic_range_db=70,
+    pixel_size=2.74,
+    size_format="Type 1.2",
+    width=14.6,
+    height=12.6,
+    diagonal=19.3,
+    quantum_efficiency_points=_mono(0.68),
+    signal_metrics=SignalMetrics(
+        temporal_dark_noise=2.3,
+        saturation_capacity=9400,
+        absolute_sensitivity_threshold=2.9,
+        dynamic_range=70,
     ),
 )
 
@@ -486,12 +484,11 @@ IMX264MZR = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=2464,
     resolution_v=2056,
-    pixel_size_um=3.45,
-    sensor_format="Type 2/3",
-    sensor_width_mm=8.5,
-    sensor_height_mm=7.1,
-    sensor_diagonal_mm=11.1,
-    emva=None,
+    pixel_size=3.45,
+    size_format="Type 2/3",
+    width=8.5,
+    height=7.1,
+    diagonal=11.1,
 )
 
 # Allied Vision publish no EMVA block for the C-508_Pol: its datasheet
@@ -503,12 +500,11 @@ IMX250MZR = SensorModel(
     shutter_modes=frozenset({ShutterType.GLOBAL}),
     resolution_h=2464,
     resolution_v=2056,
-    pixel_size_um=3.45,
-    sensor_format="Type 2/3",
-    sensor_width_mm=8.5,
-    sensor_height_mm=7.1,
-    sensor_diagonal_mm=11.1,
-    emva=None,
+    pixel_size=3.45,
+    size_format="Type 2/3",
+    width=8.5,
+    height=7.1,
+    diagonal=11.1,
 )
 
 ALVIUM_1800_C_040M = CameraModel(
@@ -517,14 +513,14 @@ ALVIUM_1800_C_040M = CameraModel(
     sensor=IMX287,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=494,
-    exposure_min_ns=28_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=494,
+    exposure_min=28_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS, LensMount.S}),
-    power_consumption_w=1.7,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=1.7,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
     vendor_discrepancies=(C_040_SATURATION_DISCREPANCY,),
 )
 
@@ -534,14 +530,14 @@ ALVIUM_1800_C_052M = CameraModel(
     sensor=IMX426,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=689,
-    exposure_min_ns=24_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=689,
+    exposure_min=24_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=3.8,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=3.8,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_158M = CameraModel(
@@ -550,14 +546,14 @@ ALVIUM_1800_C_158M = CameraModel(
     sensor=IMX273,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=262,
-    exposure_min_ns=28_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=262,
+    exposure_min=28_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS, LensMount.S}),
-    power_consumption_w=2.4,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=2.4,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_203M = CameraModel(
@@ -566,14 +562,14 @@ ALVIUM_1800_C_203M = CameraModel(
     sensor=IMX422,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=225,
-    exposure_min_ns=18_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=225,
+    exposure_min=18_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=3.1,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=3.1,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_234M = CameraModel(
@@ -582,14 +578,14 @@ ALVIUM_1800_C_234M = CameraModel(
     sensor=IMX249,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=40,
-    exposure_min_ns=34_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=40,
+    exposure_min=34_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=1.9,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=1.9,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_235M = CameraModel(
@@ -598,14 +594,14 @@ ALVIUM_1800_C_235M = CameraModel(
     sensor=IMX174,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=155,
-    exposure_min_ns=19_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=155,
+    exposure_min=19_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=1.9,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=1.9,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_240M = CameraModel(
@@ -614,14 +610,14 @@ ALVIUM_1800_C_240M = CameraModel(
     sensor=IMX392,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=192,
-    exposure_min_ns=26_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=192,
+    exposure_min=26_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS, LensMount.S}),
-    power_consumption_w=2.7,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=2.7,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_291M = CameraModel(
@@ -630,14 +626,14 @@ ALVIUM_1800_C_291M = CameraModel(
     sensor=IMX421,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=166,
-    exposure_min_ns=17_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=166,
+    exposure_min=17_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=3.8,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=3.8,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
     vendor_discrepancies=(C_291_DIAGONAL_DISCREPANCY,),
 )
 
@@ -647,14 +643,14 @@ ALVIUM_1800_C_319M = CameraModel(
     sensor=IMX265,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=54,
-    exposure_min_ns=26_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=54,
+    exposure_min=26_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS, LensMount.S}),
-    power_consumption_w=1.9,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=1.9,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_321M = CameraModel(
@@ -666,18 +662,18 @@ ALVIUM_1800_C_321M = CameraModel(
     # ("8-bit, 10-bit, 12-bit; Adaptive"), not the converter depth, and there is
     # no datasheet to disambiguate.
     adc_bits=None,
-    max_frame_rate_fps=111,
-    exposure_min_ns=7_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=111,
+    exposure_min=7_000,
+    exposure_max=10_000_000_000,
     # Mounts appear only in the datasheets. This model has none published.
     lens_mounts=None,
-    power_consumption_w=1.9,
+    power_consumption=1.9,
     # Not published for this model. Table 100 of the user guide gives 40 g for
     # every open-housing standard Alvium regardless of mount, which is where the
     # other records' figure comes from.
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
     vendor_discrepancies=(C_321_NO_DATASHEET,),
 )
 
@@ -687,14 +683,14 @@ ALVIUM_1800_C_507M = CameraModel(
     sensor=IMX264,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=34,
-    exposure_min_ns=28_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=34,
+    exposure_min=28_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=1.9,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=1.9,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_508M = CameraModel(
@@ -703,14 +699,14 @@ ALVIUM_1800_C_508M = CameraModel(
     sensor=IMX250,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=95,
-    exposure_min_ns=19_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=95,
+    exposure_min=19_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=2.8,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=2.8,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_510M = CameraModel(
@@ -719,14 +715,14 @@ ALVIUM_1800_C_510M = CameraModel(
     sensor=IMX548,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=81,
-    exposure_min_ns=8_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=81,
+    exposure_min=8_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS, LensMount.S}),
-    power_consumption_w=2.8,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=2.8,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_511M = CameraModel(
@@ -735,14 +731,14 @@ ALVIUM_1800_C_511M = CameraModel(
     sensor=IMX547,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=79,
-    exposure_min_ns=8_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=79,
+    exposure_min=8_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS, LensMount.S}),
-    power_consumption_w=3.0,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=3.0,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_811M = CameraModel(
@@ -751,14 +747,14 @@ ALVIUM_1800_C_811M = CameraModel(
     sensor=IMX546,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=59,
-    exposure_min_ns=8_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=59,
+    exposure_min=8_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=3.1,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=3.1,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_895M = CameraModel(
@@ -767,14 +763,14 @@ ALVIUM_1800_C_895M = CameraModel(
     sensor=IMX267,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=31,
-    exposure_min_ns=29_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=31,
+    exposure_min=29_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=2.6,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=2.6,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_1236M = CameraModel(
@@ -783,14 +779,14 @@ ALVIUM_1800_C_1236M = CameraModel(
     sensor=IMX304,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=22,
-    exposure_min_ns=29_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=22,
+    exposure_min=29_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C}),
-    power_consumption_w=2.6,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=2.6,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_1242M = CameraModel(
@@ -799,14 +795,14 @@ ALVIUM_1800_C_1242M = CameraModel(
     sensor=IMX545,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=40,
-    exposure_min_ns=11_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=40,
+    exposure_min=11_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=3.2,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=3.2,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_1620M = CameraModel(
@@ -815,14 +811,14 @@ ALVIUM_1800_C_1620M = CameraModel(
     sensor=IMX542,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=32,
-    exposure_min_ns=13_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=32,
+    exposure_min=13_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=3.8,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=3.8,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_2040M = CameraModel(
@@ -831,14 +827,14 @@ ALVIUM_1800_C_2040M = CameraModel(
     sensor=IMX541,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=25,
-    exposure_min_ns=11_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=25,
+    exposure_min=11_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=3.7,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=3.7,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_2460M = CameraModel(
@@ -847,14 +843,14 @@ ALVIUM_1800_C_2460M = CameraModel(
     sensor=IMX540,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=21,
-    exposure_min_ns=13_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=21,
+    exposure_min=13_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=3.8,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=3.8,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_507_POLM = CameraModel(
@@ -863,14 +859,14 @@ ALVIUM_1800_C_507_POLM = CameraModel(
     sensor=IMX264MZR,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=34,
-    exposure_min_ns=28_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=34,
+    exposure_min=28_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=1.9,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=1.9,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 ALVIUM_1800_C_508_POLM = CameraModel(
@@ -879,14 +875,14 @@ ALVIUM_1800_C_508_POLM = CameraModel(
     sensor=IMX250MZR,
     interface=Interface.CSI2,
     adc_bits=12,
-    max_frame_rate_fps=95,
-    exposure_min_ns=19_000,
-    exposure_max_ns=10_000_000_000,
+    max_frame_rate=95,
+    exposure_min=19_000,
+    exposure_max=10_000_000_000,
     lens_mounts=frozenset({LensMount.C, LensMount.CS}),
-    power_consumption_w=2.8,
-    mass_g=40,
-    operating_temp_min_c=-20,
-    operating_temp_max_c=65,
+    power_consumption=2.8,
+    mass=40,
+    operating_temp_min=-20,
+    operating_temp_max=65,
 )
 
 IMX287_COLOR = SensorModel.as_color(IMX287, green=0.58, blue=0.15, red=0.03)
@@ -900,7 +896,7 @@ ALVIUM_1800_C_507C = replace(
 )
 
 
-#: The candidate table: 22 monochrome models, plus the two colour records that
+#: The candidate table: 23 monochrome models, plus the two colour records that
 #: #10 built to prove `SensorModel.as_color`. The remaining colour records are
 #: deferred to #13 — Allied Vision publish no EMVA block for colour, so each one
 #: costs three QE values read by eye off a chart.
