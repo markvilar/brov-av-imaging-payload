@@ -80,19 +80,53 @@ class LensMount(StrEnum):
 class QuantumEfficiencyPoint:
     """QE of one channel at one wavelength.
 
-    Both conditions travel with the measurement rather than being baked into a
-    field name, so a point states what it is. Channel matters as much as
-    wavelength: a colour record's QE is read off the *green* curve, and without
-    the channel it is indistinguishable from a monochrome measurement.
+    Channel matters as much as wavelength: a colour record's QE is read off the
+    *green* curve, and without the channel it is indistinguishable from a
+    monochrome measurement.
+
+    Attributes:
+        channel: Which colour channel the measurement is for.
+        wavelength: Wavelength of the measurement, in nanometres.
+        value: Quantum efficiency as a fraction in [0.0, 1.0].
     """
 
     channel: Channel
-    wavelength_nm: float
-    value: float  # fraction, 0.0-1.0
+    wavelength: float
+    value: float
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.value <= 1.0:
             raise ValueError(f"quantum efficiency is a fraction, got {self.value}")
+
+
+@dataclass(frozen=True)
+class QuantumEfficiencyPoints:
+    """QE sampled at one wavelength, one point per channel.
+
+    A monochrome sensor holds a single `MONO` point; a colour sensor holds
+    `RED`/`GREEN`/`BLUE`. Whether the channels are consistent with the sensor's
+    chroma is checked on :class:`SensorModel`, which is what knows the chroma.
+
+    Attributes:
+        points: One :class:`QuantumEfficiencyPoint` per channel, no duplicates.
+    """
+
+    points: tuple[QuantumEfficiencyPoint, ...]
+
+    def __post_init__(self) -> None:
+        channels = [p.channel for p in self.points]
+        if len(set(channels)) != len(channels):
+            raise ValueError(f"duplicate QE channel in {channels}")
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        return frozenset(p.channel for p in self.points)
+
+    def for_channel(self, channel: Channel) -> QuantumEfficiencyPoint:
+        for point in self.points:
+            if point.channel is channel:
+                return point
+        raise KeyError(f"no {channel} measurement")
 
 
 @dataclass(frozen=True)
@@ -109,53 +143,79 @@ class QuantumEfficiencyCurve:
         if any(p.channel is not self.channel for p in self.points):
             raise ValueError(f"curve for {self.channel} holds foreign channels")
 
-    def at(self, wavelength_nm: float) -> float:
+    def at(self, wavelength: float) -> float:
         """Linearly interpolate this channel's QE at an arbitrary wavelength."""
-        ordered = sorted(self.points, key=lambda p: p.wavelength_nm)
-        xs = [p.wavelength_nm for p in ordered]
+        ordered = sorted(self.points, key=lambda p: p.wavelength)
+        xs = [p.wavelength for p in ordered]
         ys = [p.value for p in ordered]
-        if not xs or not xs[0] <= wavelength_nm <= xs[-1]:
-            raise ValueError(f"{wavelength_nm} nm is outside the sampled range")
+        if not xs or not xs[0] <= wavelength <= xs[-1]:
+            raise ValueError(f"{wavelength} nm is outside the sampled range")
         for i in range(1, len(xs)):
-            if wavelength_nm <= xs[i]:
+            if wavelength <= xs[i]:
                 span = xs[i] - xs[i - 1]
                 if span == 0:
                     return ys[i]
-                fraction = (wavelength_nm - xs[i - 1]) / span
+                fraction = (wavelength - xs[i - 1]) / span
                 return ys[i - 1] + fraction * (ys[i] - ys[i - 1])
         return ys[-1]
 
 
 @dataclass(frozen=True)
-class EmvaMeasurements:
-    """The EMVA 1288 Release 3.1 block, as published in a model's datasheet.
+class QuantumEfficiencyCurves:
+    """QE sampled across wavelength, one curve per channel.
+
+    Populated only for shortlist finalists; digitising every family is
+    disproportionate. Needed to evaluate QE at a strobe wavelength other than the
+    529 nm Allied Vision quote.
+
+    Attributes:
+        curves: One :class:`QuantumEfficiencyCurve` per channel, no duplicates.
+    """
+
+    curves: tuple[QuantumEfficiencyCurve, ...]
+
+    def __post_init__(self) -> None:
+        channels = [c.channel for c in self.curves]
+        if len(set(channels)) != len(channels):
+            raise ValueError(f"duplicate QE curve channel in {channels}")
+
+    def for_channel(self, channel: Channel) -> QuantumEfficiencyCurve:
+        for curve in self.curves:
+            if curve.channel is channel:
+                return curve
+        raise KeyError(f"no {channel} curve")
+
+
+@dataclass(frozen=True)
+class SignalMetrics:
+    """The achromatic signal figures from a model's EMVA 1288 datasheet block:
+    the noise floor, the full-well ceiling, and the dynamic range between them.
+
+    Quantum efficiency — the one *chromatic* figure in the EMVA block — lives
+    separately, in :class:`QuantumEfficiencyPoints` on the sensor. Everything
+    here is colour-independent: dark noise and full-well are properties of the
+    photodiode and readout chain, unchanged by a colour filter array, which is
+    why a colour record inherits them from its monochrome sibling.
 
     Measurements, not specifications. Allied Vision state these are "typical
     values for monochrome models measured without optical filter" — typical, not
-    guaranteed, and taken on a monochrome part. That caveat is why a colour
-    record cannot take them as published; see :meth:`SensorModel.as_color`.
+    guaranteed. Optional on a sensor because Allied Vision do not publish them for
+    every model: some datasheets have no Imaging performance section at all.
 
-    EMVA 1288 is the European Machine Vision Association's standard for
-    characterising image sensors and cameras. It fixes *how* the measurement is
-    made, which is what makes figures comparable between vendors — and what makes
-    substituting a sensor manufacturer's own numbers a real cost rather than a
-    technicality.
-
-    Optional on a sensor because Allied Vision do not publish it for every model:
-    six of the 22 CSI-2 candidates ship datasheets with no Imaging performance
-    section at all. Those sensors are structurally complete and simply cannot be
-    ranked on the photon budget.
+    Attributes:
+        temporal_dark_noise: Read noise, the noise floor, in electrons (e⁻).
+        saturation_capacity: Full-well capacity, the ceiling, in electrons (e⁻).
+        absolute_sensitivity_threshold: Darkest detectable signal (SNR = 1), in
+            electrons (e⁻). Noise-derived. None for colour, where the QE it
+            depends on is not published per channel.
+        dynamic_range: Saturation capacity over threshold, in decibels (dB).
+            Noise-dependent through the threshold. None for colour, as above.
     """
 
-    quantum_efficiency: tuple[QuantumEfficiencyPoint, ...]
-    temporal_dark_noise_e: float
-    saturation_capacity_e: float
-
-    # None for colour: both depend on QE, and Allied Vision publish neither per
-    # channel. Nothing in the ranking consumes them — they are kept because their
-    # redundancy against saturation capacity is the transcription check.
-    absolute_sensitivity_threshold_e: float | None
-    dynamic_range_db: float | None
+    temporal_dark_noise: float
+    saturation_capacity: float
+    absolute_sensitivity_threshold: float | None
+    dynamic_range: float | None
 
     def __post_init__(self) -> None:
         """Dynamic range must follow from saturation capacity and threshold.
@@ -164,25 +224,16 @@ class EmvaMeasurements:
         surfaced the C-040, whose datasheet states a saturation capacity 10x too
         high.
         """
-        if (
-            self.dynamic_range_db is None
-            or self.absolute_sensitivity_threshold_e is None
-        ):
+        if self.dynamic_range is None or self.absolute_sensitivity_threshold is None:
             return
         derived = 20 * math.log10(
-            self.saturation_capacity_e / self.absolute_sensitivity_threshold_e
+            self.saturation_capacity / self.absolute_sensitivity_threshold
         )
-        if abs(derived - self.dynamic_range_db) > DYNAMIC_RANGE_TOLERANCE_DB:
+        if abs(derived - self.dynamic_range) > DYNAMIC_RANGE_TOLERANCE_DB:
             raise ValueError(
                 f"dynamic range derived from saturation capacity and threshold "
-                f"is {derived:.1f} dB, but {self.dynamic_range_db} dB is published"
+                f"is {derived:.1f} dB, but {self.dynamic_range} dB is published"
             )
-
-    def quantum_efficiency_for(self, channel: Channel) -> QuantumEfficiencyPoint:
-        for point in self.quantum_efficiency:
-            if point.channel is channel:
-                return point
-        raise KeyError(f"no {channel} measurement")
 
 
 @dataclass(frozen=True)
@@ -190,9 +241,30 @@ class SensorModel:
     """Silicon-level facts, split from the camera so that features needing only
     sensor attributes need not carry a camera.
 
-    These are *not* shared between models in practice: the 26 CSI-2 candidates
-    use 26 distinct sensors. The STEP *file* is shared across a sensor family;
+    These are *not* shared between models in practice: the 23 CSI-2 candidates
+    use 23 distinct sensors. The STEP *file* is shared across a sensor family;
     the silicon never is.
+
+    Attributes:
+        model_label: Sensor part number, e.g. "Sony IMX264".
+        chroma: Monochrome or colour variant.
+        shutter_modes: Every shutter mode the sensor supports (an availability
+            set; mode is selectable at runtime, not an order-time variant).
+        resolution_h: Horizontal active pixels.
+        resolution_v: Vertical active pixels.
+        pixel_size: Pixel pitch, in micrometres (µm), assumed square.
+        size_format: Optical format label, e.g. "Type 2/3". A size class, not a
+            true dimension — see width/height/diagonal for those.
+        width: Active-area width, in millimetres (mm).
+        height: Active-area height, in millimetres (mm).
+        diagonal: Active-area diagonal, in millimetres (mm).
+        quantum_efficiency_points: QE at 529 nm, one point per channel, or None
+            where the datasheet publishes no EMVA block.
+        quantum_efficiency_curves: QE across wavelength, one curve per channel,
+            or None until digitised for a shortlist finalist.
+        signal_metrics: Achromatic noise/dynamic-range figures, or None where
+            unpublished. These three fields are the pieces of the datasheet's
+            EMVA block, split by meaning: QE is chromatic, the metrics are not.
     """
 
     model_label: str  # "Sony IMX264"
@@ -205,41 +277,39 @@ class SensorModel:
 
     resolution_h: int
     resolution_v: int
-    pixel_size_um: float
+    pixel_size: float
 
     # Published active area, from the user guide's `Sensor size` row. Redundant
     # against resolution x pixel size — stored *because* that redundancy is the
     # check, the same reasoning that keeps the EMVA block whole.
-    sensor_format: str  # "Type 2/3"
-    sensor_width_mm: float
-    sensor_height_mm: float
-    sensor_diagonal_mm: float
+    size_format: str  # "Type 2/3"
+    width: float
+    height: float
+    diagonal: float
 
-    # From the datasheet rather than the user guide, and absent for six of the
-    # 22 candidates — Allied Vision do not publish the block for every model.
-    # A sensor without it is structurally complete but cannot be ranked on the
-    # photon budget.
-    emva: EmvaMeasurements | None = None
-
-    # One curve per channel. Populated only for shortlist finalists; digitising
-    # every family is disproportionate. Needed to evaluate QE at a strobe
-    # wavelength other than the 529 nm Allied Vision quote.
-    quantum_efficiency_curves: tuple[QuantumEfficiencyCurve, ...] = ()
+    # The datasheet's EMVA 1288 block, split by meaning into three optional
+    # pieces. All three come from the same table and are absent together for the
+    # six candidates whose datasheets have no Imaging performance section — but
+    # they are separate so provenance can diverge later (e.g. taking a sensor
+    # maker's QE for a model Allied Vision never characterised).
+    quantum_efficiency_points: QuantumEfficiencyPoints | None = None
+    quantum_efficiency_curves: QuantumEfficiencyCurves | None = None
+    signal_metrics: SignalMetrics | None = None
 
     def __post_init__(self) -> None:
         self._check_chroma_channels()
         self._check_sensor_geometry()
 
     @property
-    def pixel_area_um2(self) -> float:
-        """Photon-collecting area per pixel. Drives the low-light budget."""
-        return self.pixel_size_um**2
+    def pixel_area(self) -> float:
+        """Photon-collecting area per pixel, in µm². Drives the low-light budget."""
+        return self.pixel_size**2
 
     def quantum_efficiency_for(self, channel: Channel) -> QuantumEfficiencyPoint:
-        if self.emva is None:
-            raise KeyError(f"{self.model_label} has no EMVA measurements")
+        if self.quantum_efficiency_points is None:
+            raise KeyError(f"{self.model_label} has no QE measurements")
         try:
-            return self.emva.quantum_efficiency_for(channel)
+            return self.quantum_efficiency_points.for_channel(channel)
         except KeyError:
             raise KeyError(f"{self.model_label} has no {channel} measurement") from None
 
@@ -268,51 +338,51 @@ class SensorModel:
         """
         if mono.chroma is not Chroma.MONO:
             raise ValueError(f"{mono.model_label} is not a monochrome record")
-        if mono.emva is None:
+        if mono.quantum_efficiency_points is None or mono.signal_metrics is None:
             raise ValueError(
-                f"{mono.model_label} has no EMVA measurements to inherit; "
-                f"Allied Vision publish no block for it"
+                f"{mono.model_label} has no measurements to inherit; "
+                f"Allied Vision publish no EMVA block for it"
             )
-        wavelength = mono.quantum_efficiency_for(Channel.MONO).wavelength_nm
+        wavelength = mono.quantum_efficiency_for(Channel.MONO).wavelength
         return replace(
             mono,
             chroma=Chroma.COLOR,
-            emva=EmvaMeasurements(
-                quantum_efficiency=(
+            quantum_efficiency_points=QuantumEfficiencyPoints(
+                (
                     QuantumEfficiencyPoint(Channel.RED, wavelength, red),
                     QuantumEfficiencyPoint(Channel.GREEN, wavelength, green),
                     QuantumEfficiencyPoint(Channel.BLUE, wavelength, blue),
-                ),
-                temporal_dark_noise_e=mono.emva.temporal_dark_noise_e,
-                saturation_capacity_e=mono.emva.saturation_capacity_e,
-                absolute_sensitivity_threshold_e=None,
-                dynamic_range_db=None,
+                )
             ),
-            quantum_efficiency_curves=(),
+            signal_metrics=SignalMetrics(
+                temporal_dark_noise=mono.signal_metrics.temporal_dark_noise,
+                saturation_capacity=mono.signal_metrics.saturation_capacity,
+                absolute_sensitivity_threshold=None,
+                dynamic_range=None,
+            ),
+            quantum_efficiency_curves=None,
         )
 
     def _check_chroma_channels(self) -> None:
-        """Chroma and channel must agree.
+        """The QE channels must agree with the sensor's chroma.
 
-        Vacuous where no EMVA block is published: there are no measurements to
-        disagree with the chroma.
+        Vacuous where no QE is published: there are no measurements to disagree
+        with the chroma. Duplicate-channel checks live on the QE containers; this
+        is the cross-check the containers cannot do, since only the sensor knows
+        its chroma.
         """
-        if self.emva is None:
+        if self.quantum_efficiency_points is None:
             return
-        points = self.emva.quantum_efficiency
-        channels = {p.channel for p in points}
-        if len(channels) != len(points):
-            raise ValueError(f"{self.model_label} repeats a QE channel")
+        channels = self.quantum_efficiency_points.channels
         if self.chroma is Chroma.MONO:
             if channels != {Channel.MONO}:
                 raise ValueError(
-                    f"{self.model_label} is monochrome but carries {channels}"
+                    f"{self.model_label} is monochrome but carries {set(channels)}"
                 )
         elif not channels or not channels <= {Channel.RED, Channel.GREEN, Channel.BLUE}:
-            raise ValueError(f"{self.model_label} is colour but carries {channels}")
-        curve_channels = [c.channel for c in self.quantum_efficiency_curves]
-        if len(set(curve_channels)) != len(curve_channels):
-            raise ValueError(f"{self.model_label} repeats a QE curve channel")
+            raise ValueError(
+                f"{self.model_label} is colour but carries {set(channels)}"
+            )
 
     def _check_sensor_geometry(self) -> None:
         """resolution x pixel size must reproduce the published dimensions.
@@ -321,13 +391,13 @@ class SensorModel:
         each other. This is the redundancy that corroborated the C-2050, whose
         datasheet states a resolution 120 px narrower than the user guide.
         """
-        width = self.resolution_h * self.pixel_size_um / 1000
-        height = self.resolution_v * self.pixel_size_um / 1000
+        width = self.resolution_h * self.pixel_size / 1000
+        height = self.resolution_v * self.pixel_size / 1000
         diagonal = math.hypot(width, height)
         for name, derived, published in (
-            ("width", width, self.sensor_width_mm),
-            ("height", height, self.sensor_height_mm),
-            ("diagonal", diagonal, self.sensor_diagonal_mm),
+            ("width", width, self.width),
+            ("height", height, self.height),
+            ("diagonal", diagonal, self.diagonal),
         ):
             if abs(derived - published) > SENSOR_SIZE_TOLERANCE_MM:
                 raise ValueError(
@@ -338,45 +408,49 @@ class SensorModel:
 
 @dataclass(frozen=True)
 class CameraModel:
-    """An orderable Alvium model. This is what an ADR and a purchase order name."""
+    """An orderable Alvium model. This is what an ADR and a purchase order name.
 
-    # Carries the chroma suffix, matching the vendor: the user guide names the
-    # variants "1800 C-508m (monochrome)" and "1800 C-508c (color)".
-    model_label: str  # "1800 C-507m" / "1800 C-507c"
-    series: str  # "Alvium 1800 C"
+    Attributes:
+        model_label: Model designation with the vendor's chroma suffix, e.g.
+            "1800 C-507m" (mono) / "1800 C-507c" (colour).
+        series: Product series, e.g. "Alvium 1800 C".
+        sensor: The image sensor this model is built on.
+        interface: Host interface (CSI-2 for every candidate).
+        adc_bits: ADC converter depth, in bits. None where Allied Vision publish
+            only the selectable output depth, not the converter depth — the user
+            guide labels the two identically and the datasheet disambiguates, so
+            a model with no datasheet has no published value.
+        max_frame_rate: Maximum frame rate at full resolution, in frames per
+            second. Kept for its timing role, not its rate: readout time ≈
+            1 / max_frame_rate is the only published handle on scan-out time,
+            which CAM-1's global-reset condition needs.
+        exposure_min: Minimum exposure time, in nanoseconds.
+        exposure_max: Maximum exposure time, in nanoseconds. Nanoseconds because
+            the sync subsystem reasons in ns; the vendor publishes µs and s.
+        lens_mounts: Orderable mounts (an availability set). Empty means a
+            bare-board variant with no mount; None means unpublished — mounts
+            appear only in datasheets, never the user guide's per-model table.
+        power_consumption: Typical power consumption, in watts (W).
+        mass: Mass, in grams (g).
+        operating_temp_min: Minimum operating temperature, in degrees Celsius.
+        operating_temp_max: Maximum operating temperature, in degrees Celsius.
+        vendor_discrepancies: Recorded source errors or disagreements; empty for
+            a clean record.
+    """
+
+    model_label: str
+    series: str
     sensor: SensorModel
-
     interface: Interface
-
-    # None where Allied Vision do not publish the converter depth. The user
-    # guide labels two different facts identically — some models show
-    # `ADC bit depth: 12-bit` (the converter), others only
-    # `Sensor bit depth (ADC): 8-bit, 10-bit, 12-bit; Adaptive` (the selectable
-    # output format) — and the datasheet disambiguates. A model with no
-    # datasheet therefore has no published converter depth.
     adc_bits: int | None
-
-    # Kept for its timing role, not its frame rate: readout time ~ 1 / max_fps
-    # is the only published handle on how long a frame takes to scan out, and
-    # CAM-1's global-reset condition needs it — the strobe area is bounded by
-    # the first line's readout.
-    max_frame_rate_fps: float
-
-    # Nanoseconds because the sync subsystem reasons in ns (trigger jitter,
-    # flash duration) and integer ns avoids float rounding across that boundary.
-    # The vendor publishes us and s.
-    exposure_min_ns: int
-    exposure_max_ns: int
-
-    # Availability set, not a value. Empty means a bare-board variant, which
-    # carries no mount; None means Allied Vision do not publish it — mounts
-    # appear only in the datasheets, never in the user guide's per-model table.
+    max_frame_rate: float
+    exposure_min: int
+    exposure_max: int
     lens_mounts: frozenset[LensMount] | None
-
-    power_consumption_w: float
-    mass_g: float
-    operating_temp_min_c: float
-    operating_temp_max_c: float
+    power_consumption: float
+    mass: float
+    operating_temp_min: float
+    operating_temp_max: float
 
     # Where a source is known to be wrong, or two disagree, the disagreement is
     # recorded rather than silently resolved. Empty for a clean record. This is
@@ -385,21 +459,22 @@ class CameraModel:
     vendor_discrepancies: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.exposure_min_ns >= self.exposure_max_ns:
+        if self.exposure_min >= self.exposure_max:
             raise ValueError(
                 f"{self.model_label}: exposure range "
-                f"{self.exposure_min_ns}-{self.exposure_max_ns} ns is empty"
+                f"{self.exposure_min}-{self.exposure_max} ns is empty"
             )
 
     @property
-    def readout_time_ns(self) -> int:
-        """Time to scan out a full frame, inferred from the maximum frame rate.
+    def readout_time(self) -> int:
+        """Time to scan out a full frame, in nanoseconds, inferred from the
+        maximum frame rate.
 
         CAM-1 needs this: with global reset shutter the strobe must fire before
         the first line reads out, and with plain rolling shutter a common
         integration window exists only where exposure exceeds this.
         """
-        return round(1e9 / self.max_frame_rate_fps)
+        return round(1e9 / self.max_frame_rate)
 
     @property
     def satisfies_cam1_unconditionally(self) -> bool:

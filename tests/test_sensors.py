@@ -10,13 +10,14 @@ import pytest
 
 from camsel.models import (
     Channel,
-    EmvaMeasurements,
     Chroma,
     LensMount,
     QuantumEfficiencyCurve,
     QuantumEfficiencyPoint,
+    QuantumEfficiencyPoints,
     SensorModel,
     ShutterType,
+    SignalMetrics,
 )
 from camsel.sensors import (
     ALVIUM_1800_C_040M,
@@ -29,7 +30,7 @@ from camsel.sensors import (
 
 
 def test_every_record_constructs() -> None:
-    """The candidate table: 22 monochrome models plus two colour records.
+    """The candidate table: 23 monochrome models plus two colour records.
 
     Constructing at import means every record has already passed the geometry,
     chroma and (where published) EMVA checks.
@@ -48,7 +49,7 @@ def test_models_without_a_published_emva_block() -> None:
     Kept in the table rather than excluded, so the trade study can say why a
     candidate was not evaluated instead of it silently not appearing.
     """
-    missing = {c.model_label for c in CSI2_CAMERAS if c.sensor.emva is None}
+    missing = {c.model_label for c in CSI2_CAMERAS if c.sensor.signal_metrics is None}
     assert missing == {
         "1800 C-203m",
         "1800 C-234m",
@@ -68,24 +69,24 @@ def test_the_c321_is_partial_but_present() -> None:
     the row's absence.
     """
     c321 = next(c for c in CSI2_CAMERAS if c.model_label == "1800 C-321m")
-    assert c321.sensor.emva is None
+    assert c321.sensor.signal_metrics is None
     assert c321.adc_bits is None
     assert c321.lens_mounts is None
     # Everything the user guide does publish is there.
-    assert c321.sensor.pixel_size_um == 2.25
-    assert c321.max_frame_rate_fps == 111
-    assert c321.power_consumption_w == 1.9
+    assert c321.sensor.pixel_size == 2.25
+    assert c321.max_frame_rate == 111
+    assert c321.power_consumption == 1.9
     assert c321.vendor_discrepancies
 
 
 def test_rankable_records_have_the_budget_inputs() -> None:
     """Anything with an EMVA block has what the photon budget needs."""
     for camera in CSI2_CAMERAS:
-        if camera.sensor.emva is None:
+        if camera.sensor.signal_metrics is None:
             continue
-        assert camera.sensor.emva.saturation_capacity_e > 0
-        assert camera.sensor.emva.temporal_dark_noise_e > 0
-        assert camera.sensor.pixel_area_um2 > 0
+        assert camera.sensor.signal_metrics.saturation_capacity > 0
+        assert camera.sensor.signal_metrics.temporal_dark_noise > 0
+        assert camera.sensor.pixel_area > 0
 
 
 def test_every_candidate_is_global_shutter() -> None:
@@ -100,27 +101,27 @@ class TestEmvaRedundancy:
         This is the datasheet's published figure, and it is why the record
         stores 20800 instead.
         """
-        assert IMX287.emva is not None
+        assert IMX287.signal_metrics is not None
         with pytest.raises(ValueError, match="dynamic range derived"):
-            replace(IMX287.emva, saturation_capacity_e=208000)
+            replace(IMX287.signal_metrics, saturation_capacity=208000)
 
     def test_fires_on_a_corrupted_dynamic_range(self) -> None:
-        assert IMX264.emva is not None
+        assert IMX264.signal_metrics is not None
         with pytest.raises(ValueError, match="dynamic range derived"):
-            replace(IMX264.emva, dynamic_range_db=90)
+            replace(IMX264.signal_metrics, dynamic_range=90)
 
     def test_tolerates_the_vendors_rounding(self) -> None:
         """Published figures are rounded to whole dB and must still pass."""
         for sensor in (IMX264, IMX287):
-            assert sensor.emva is not None
-            assert sensor.emva.dynamic_range_db is not None
+            assert sensor.signal_metrics is not None
+            assert sensor.signal_metrics.dynamic_range is not None
 
     def test_skipped_for_colour(self) -> None:
         """Colour has neither field, so there is nothing to check."""
         colour = ALVIUM_1800_C_507C.sensor
-        assert colour.emva is not None
-        assert colour.emva.dynamic_range_db is None
-        assert colour.emva.absolute_sensitivity_threshold_e is None
+        assert colour.signal_metrics is not None
+        assert colour.signal_metrics.dynamic_range is None
+        assert colour.signal_metrics.absolute_sensitivity_threshold is None
 
 
 class TestSensorGeometry:
@@ -138,17 +139,19 @@ class TestSensorGeometry:
             chroma=Chroma.MONO,
             shutter_modes=frozenset({ShutterType.ROLLING, ShutterType.GLOBAL_RESET}),
             resolution_v=3672,
-            pixel_size_um=2.4,
-            sensor_format="Type 1",
-            sensor_width_mm=13.1,
-            sensor_height_mm=8.8,
-            sensor_diagonal_mm=15.9,
-            emva=EmvaMeasurements(
-                quantum_efficiency=(QuantumEfficiencyPoint(Channel.MONO, 529.0, 0.80),),
-                temporal_dark_noise_e=6.0,
-                saturation_capacity_e=14600,
-                absolute_sensitivity_threshold_e=7.9,
-                dynamic_range_db=65,
+            pixel_size=2.4,
+            size_format="Type 1",
+            width=13.1,
+            height=8.8,
+            diagonal=15.9,
+            quantum_efficiency_points=QuantumEfficiencyPoints(
+                (QuantumEfficiencyPoint(Channel.MONO, 529.0, 0.80),)
+            ),
+            signal_metrics=SignalMetrics(
+                temporal_dark_noise=6.0,
+                saturation_capacity=14600,
+                absolute_sensitivity_threshold=7.9,
+                dynamic_range=65,
             ),
         )
         SensorModel(resolution_h=5496, **imx183_as_the_datasheet_has_it)  # user guide
@@ -157,26 +160,26 @@ class TestSensorGeometry:
 
     def test_fires_on_a_corrupted_pixel_size(self) -> None:
         with pytest.raises(ValueError, match="derived width"):
-            replace(IMX264, pixel_size_um=3.75)
+            replace(IMX264, pixel_size=3.75)
 
     def test_published_dimensions_reproduce(self) -> None:
         for sensor in (IMX264, IMX287):
-            width = sensor.resolution_h * sensor.pixel_size_um / 1000
-            assert width == pytest.approx(sensor.sensor_width_mm, abs=0.15)
+            width = sensor.resolution_h * sensor.pixel_size / 1000
+            assert width == pytest.approx(sensor.width, abs=0.15)
 
 
 class TestChromaChannels:
     def test_mono_record_carries_one_mono_point(self) -> None:
         assert IMX264.chroma is Chroma.MONO
-        assert IMX264.emva is not None
-        (point,) = IMX264.emva.quantum_efficiency
+        assert IMX264.quantum_efficiency_points is not None
+        (point,) = IMX264.quantum_efficiency_points.points
         assert point.channel is Channel.MONO
 
     def test_colour_record_carries_rgb_and_no_mono(self) -> None:
         colour = ALVIUM_1800_C_507C.sensor
         assert colour.chroma is Chroma.COLOR
-        assert colour.emva is not None
-        assert {p.channel for p in colour.emva.quantum_efficiency} == {
+        assert colour.quantum_efficiency_points is not None
+        assert colour.quantum_efficiency_points.channels == {
             Channel.RED,
             Channel.GREEN,
             Channel.BLUE,
@@ -186,24 +189,18 @@ class TestChromaChannels:
         with pytest.raises(ValueError, match="monochrome but carries"):
             replace(
                 IMX264,
-                emva=replace(
-                    IMX264.emva,
-                    quantum_efficiency=(
-                        QuantumEfficiencyPoint(Channel.GREEN, 529.0, 0.57),
-                    ),
+                quantum_efficiency_points=QuantumEfficiencyPoints(
+                    (QuantumEfficiencyPoint(Channel.GREEN, 529.0, 0.57),)
                 ),
             )
 
     def test_fires_when_colour_carries_a_mono_channel(self) -> None:
+        colour = ALVIUM_1800_C_507C.sensor
         with pytest.raises(ValueError, match="colour but carries"):
-            colour = ALVIUM_1800_C_507C.sensor
             replace(
                 colour,
-                emva=replace(
-                    colour.emva,
-                    quantum_efficiency=(
-                        QuantumEfficiencyPoint(Channel.MONO, 529.0, 0.64),
-                    ),
+                quantum_efficiency_points=QuantumEfficiencyPoints(
+                    (QuantumEfficiencyPoint(Channel.MONO, 529.0, 0.64),)
                 ),
             )
 
@@ -212,21 +209,27 @@ class TestAsColor:
     def test_inherits_saturation_and_dark_noise(self) -> None:
         """The CFA sits above the photodiode: well depth and readout are the same."""
         colour = SensorModel.as_color(IMX264, green=0.57, blue=0.10, red=0.03)
-        assert colour.emva is not None and IMX264.emva is not None
-        assert colour.emva.saturation_capacity_e == IMX264.emva.saturation_capacity_e
-        assert colour.emva.temporal_dark_noise_e == IMX264.emva.temporal_dark_noise_e
+        assert colour.signal_metrics is not None and IMX264.signal_metrics is not None
+        assert (
+            colour.signal_metrics.saturation_capacity
+            == IMX264.signal_metrics.saturation_capacity
+        )
+        assert (
+            colour.signal_metrics.temporal_dark_noise
+            == IMX264.signal_metrics.temporal_dark_noise
+        )
 
     def test_drops_threshold_and_dynamic_range(self) -> None:
         """Both depend on QE, which AV never publish per channel."""
         colour = SensorModel.as_color(IMX264, green=0.57, blue=0.10, red=0.03)
-        assert colour.emva is not None
-        assert colour.emva.absolute_sensitivity_threshold_e is None
-        assert colour.emva.dynamic_range_db is None
+        assert colour.signal_metrics is not None
+        assert colour.signal_metrics.absolute_sensitivity_threshold is None
+        assert colour.signal_metrics.dynamic_range is None
 
     def test_reads_qe_at_the_vendors_wavelength(self) -> None:
         colour = SensorModel.as_color(IMX264, green=0.57, blue=0.10, red=0.03)
         green = colour.quantum_efficiency_for(Channel.GREEN)
-        assert green.wavelength_nm == 529.0
+        assert green.wavelength == 529.0
         assert green.value == 0.57
 
     def test_rejects_a_colour_source(self) -> None:
@@ -299,18 +302,18 @@ class TestCam1:
 
     def test_readout_time_is_inferred_from_frame_rate(self) -> None:
         """CAM-1 needs readout time; max frame rate is the only handle on it."""
-        assert ALVIUM_1800_C_507M.readout_time_ns == pytest.approx(29_411_765, rel=1e-6)
+        assert ALVIUM_1800_C_507M.readout_time == pytest.approx(29_411_765, rel=1e-6)
 
     def test_exposure_ceiling_exceeds_readout(self) -> None:
         """A GRS strobe area exists only if exposure can outlast readout."""
         for camera in CSI2_CAMERAS:
-            assert camera.exposure_max_ns > camera.readout_time_ns
+            assert camera.exposure_max > camera.readout_time
 
 
 class TestCameraModel:
     def test_rejects_an_empty_exposure_range(self) -> None:
         with pytest.raises(ValueError, match="exposure range"):
-            replace(ALVIUM_1800_C_507M, exposure_min_ns=10_000_000_001)
+            replace(ALVIUM_1800_C_507M, exposure_min=10_000_000_001)
 
     def test_discrepancies_are_enumerable(self) -> None:
         """#11 needs the vendor-error set to report to Allied Vision."""
